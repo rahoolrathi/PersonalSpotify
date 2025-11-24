@@ -1,13 +1,13 @@
 {
   "files": {
     "main.css": "/PersonalSpotify/static/css/main.6cebb1f6.css",
-    "main.js": "/PersonalSpotify/static/js/main.da3429c9.js",
+    "main.js": "/PersonalSpotify/static/js/main.cbf31e76.js",
     "index.html": "/PersonalSpotify/index.html",
     "main.6cebb1f6.css.map": "/PersonalSpotify/static/css/main.6cebb1f6.css.map",
-    "main.da3429c9.js.map": "/PersonalSpotify/static/js/main.da3429c9.js.map"
+    "main.cbf31e76.js.map": "/PersonalSpotify/static/js/main.cbf31e76.js.map"
   },
   "entrypoints": [
     "static/css/main.6cebb1f6.css",
-    "static/js/main.da3429c9.js"
+    "static/js/main.cbf31e76.js"
   ]
 }

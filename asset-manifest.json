@@ -1,10 +1,10 @@
 {
   "files": {
-    "main.css": "/livekit-audio-room/static/css/main.6cebb1f6.css",
-    "main.js": "/livekit-audio-room/static/js/main.fc2eaae4.js",
-    "index.html": "/livekit-audio-room/index.html",
-    "main.6cebb1f6.css.map": "/livekit-audio-room/static/css/main.6cebb1f6.css.map",
-    "main.fc2eaae4.js.map": "/livekit-audio-room/static/js/main.fc2eaae4.js.map"
+    "main.css": "/PersonalSpotify/static/css/main.6cebb1f6.css",
+    "main.js": "/PersonalSpotify/static/js/main.fc2eaae4.js",
+    "index.html": "/PersonalSpotify/index.html",
+    "main.6cebb1f6.css.map": "/PersonalSpotify/static/css/main.6cebb1f6.css.map",
+    "main.fc2eaae4.js.map": "/PersonalSpotify/static/js/main.fc2eaae4.js.map"
   },
   "entrypoints": [
     "static/css/main.6cebb1f6.css",

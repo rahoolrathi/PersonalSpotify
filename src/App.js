@@ -87,6 +87,22 @@ const LogOut = ({ className }) => (
   </svg>
 );
 
+const Music = ({ className }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
+    />
+  </svg>
+);
+
 export default function LiveKitAudioRoom() {
   const [roomName, setRoomName] = useState("");
   const [userName, setUserName] = useState("");
@@ -97,17 +113,16 @@ export default function LiveKitAudioRoom() {
   const [participants, setParticipants] = useState([]);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [audioSource, setAudioSource] = useState("system"); // "system" or "microphone"
 
   const roomRef = useRef(null);
   const localTrackRef = useRef(null);
   const LiveKitRef = useRef(null);
+  const streamRef = useRef(null);
 
-  // Load LiveKit SDK dynamically
-  // Load LiveKit SDK dynamically
   useEffect(() => {
     const loadLiveKit = async () => {
       try {
-        // Load from jsDelivr CDN (more reliable than unpkg)
         const script = document.createElement("script");
         script.src =
           "https://cdn.jsdelivr.net/npm/livekit-client@2.16.0/dist/livekit-client.umd.min.js";
@@ -185,16 +200,66 @@ export default function LiveKitAudioRoom() {
       room.on(RoomEvent.Disconnected, () => {
         setIsConnected(false);
         setParticipants([]);
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((track) => track.stop());
+          streamRef.current = null;
+        }
       });
 
       // Connect to room
       await room.connect(wsUrl, token);
 
-      // Enable microphone
-      await room.localParticipant.setMicrophoneEnabled(true);
-      localTrackRef.current = room.localParticipant.audioTrackPublications
-        .values()
-        .next().value;
+      // Capture audio based on selected source
+      if (audioSource === "system") {
+        try {
+          // Request screen share with audio (minimal video to focus on audio)
+          const stream = await navigator.mediaDevices.getDisplayMedia({
+            video: {
+              width: { ideal: 1 },
+              height: { ideal: 1 },
+              frameRate: { ideal: 1 },
+            },
+            audio: {
+              echoCancellation: false,
+              noiseSuppression: false,
+              autoGainControl: false,
+              sampleRate: 48000,
+            },
+          });
+
+          streamRef.current = stream;
+
+          // Stop video track immediately (we only need audio)
+          const videoTracks = stream.getVideoTracks();
+          videoTracks.forEach((track) => track.stop());
+
+          // Get and publish audio track
+          const audioTrack = stream.getAudioTracks()[0];
+          if (audioTrack) {
+            await room.localParticipant.publishTrack(audioTrack, {
+              name: "system-audio",
+              source: Track.Source.ScreenShareAudio,
+            });
+            localTrackRef.current = audioTrack;
+          } else {
+            throw new Error(
+              "No audio track found. Make sure to check 'Share audio' or 'Share tab audio' in the dialog."
+            );
+          }
+        } catch (screenShareErr) {
+          console.error("Screen share error:", screenShareErr);
+          throw new Error(
+            "Failed to capture system audio. Make sure to select 'Share audio' when prompted."
+          );
+        }
+      } else {
+        // Use microphone
+        await room.localParticipant.setMicrophoneEnabled(true);
+        const micPublication = Array.from(
+          room.localParticipant.audioTrackPublications.values()
+        )[0];
+        localTrackRef.current = micPublication?.audioTrack;
+      }
 
       roomRef.current = room;
       setIsConnected(true);
@@ -222,11 +287,15 @@ export default function LiveKitAudioRoom() {
   };
 
   const toggleMute = async () => {
-    if (roomRef.current) {
+    if (localTrackRef.current) {
       const newMutedState = !isMuted;
-      await roomRef.current.localParticipant.setMicrophoneEnabled(
-        !newMutedState
-      );
+      if (audioSource === "system") {
+        localTrackRef.current.enabled = !newMutedState;
+      } else {
+        await roomRef.current.localParticipant.setMicrophoneEnabled(
+          !newMutedState
+        );
+      }
       setIsMuted(newMutedState);
     }
   };
@@ -240,12 +309,19 @@ export default function LiveKitAudioRoom() {
       setParticipants([]);
       setIsMuted(false);
     }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
   };
 
   useEffect(() => {
     return () => {
       if (roomRef.current) {
         roomRef.current.disconnect();
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
       }
     };
   }, []);
@@ -257,7 +333,7 @@ export default function LiveKitAudioRoom() {
           <div className="text-center mb-8">
             <Volume2 className="w-16 h-16 text-blue-400 mx-auto mb-4" />
             <h1 className="text-3xl font-bold text-white mb-2">Audio Room</h1>
-            <p className="text-blue-200">Join and listen together</p>
+            <p className="text-blue-200">Share music and listen together</p>
           </div>
 
           {error && (
@@ -267,6 +343,36 @@ export default function LiveKitAudioRoom() {
           )}
 
           <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-blue-200 mb-2">
+                Audio Source
+              </label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setAudioSource("system")}
+                  className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-medium transition-all ${
+                    audioSource === "system"
+                      ? "bg-blue-600 text-white"
+                      : "bg-white bg-opacity-10 text-blue-200 hover:bg-opacity-20"
+                  }`}
+                >
+                  <Music className="w-5 h-5" />
+                  System Audio
+                </button>
+                <button
+                  onClick={() => setAudioSource("microphone")}
+                  className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-medium transition-all ${
+                    audioSource === "microphone"
+                      ? "bg-blue-600 text-white"
+                      : "bg-white bg-opacity-10 text-blue-200 hover:bg-opacity-20"
+                  }`}
+                >
+                  <Mic className="w-5 h-5" />
+                  Microphone
+                </button>
+              </div>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-blue-200 mb-2">
                 LiveKit Server URL
@@ -328,20 +434,38 @@ export default function LiveKitAudioRoom() {
             </button>
           </div>
 
-          <div className="mt-6 p-4 bg-blue-500 bg-opacity-10 rounded-lg border border-blue-500 border-opacity-30">
-            <p className="text-xs text-blue-200">
-              <strong>Note:</strong> You need to set up a LiveKit server and
-              generate access tokens. Visit{" "}
-              <a
-                href="https://livekit.io"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline"
-              >
-                livekit.io
-              </a>{" "}
-              to get started.
-            </p>
+          <div className="mt-6 space-y-3">
+            {audioSource === "system" && (
+              <div className="p-4 bg-yellow-500 bg-opacity-10 rounded-lg border border-yellow-500 border-opacity-30">
+                <p className="text-xs text-yellow-200">
+                  <strong>System Audio Instructions:</strong>
+                  <br />
+                  1. Click "Join Room"
+                  <br />
+                  2. Select the browser tab playing music (e.g., Spotify)
+                  <br />
+                  3. Check "Share audio" or "Share tab audio"
+                  <br />
+                  4. Click Share
+                </p>
+              </div>
+            )}
+
+            <div className="p-4 bg-blue-500 bg-opacity-10 rounded-lg border border-blue-500 border-opacity-30">
+              <p className="text-xs text-blue-200">
+                <strong>Note:</strong> You need a LiveKit server and access
+                tokens. Visit{" "}
+                <a
+                  href="https://livekit.io"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline"
+                >
+                  livekit.io
+                </a>{" "}
+                to get started.
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -359,13 +483,19 @@ export default function LiveKitAudioRoom() {
           <p className="text-blue-200">
             Room: <span className="font-semibold">{roomName}</span>
           </p>
+          <p className="text-sm text-blue-300 mt-1">
+            Audio Source:{" "}
+            <span className="font-semibold">
+              {audioSource === "system" ? "System Audio" : "Microphone"}
+            </span>
+          </p>
         </div>
 
         <div className="bg-white bg-opacity-5 rounded-xl p-6 mb-6 border border-white border-opacity-10">
           <div className="flex items-center gap-2 mb-4">
             <Users className="w-5 h-5 text-blue-400" />
             <h2 className="text-xl font-semibold text-white">
-              Participants ({participants.length}/2)
+              Participants ({participants.length})
             </h2>
           </div>
           <div className="space-y-2">
@@ -396,6 +526,8 @@ export default function LiveKitAudioRoom() {
           >
             {isMuted ? (
               <MicOff className="w-5 h-5" />
+            ) : audioSource === "system" ? (
+              <Music className="w-5 h-5" />
             ) : (
               <Mic className="w-5 h-5" />
             )}
@@ -413,8 +545,10 @@ export default function LiveKitAudioRoom() {
 
         <div className="mt-6 p-4 bg-green-500 bg-opacity-10 rounded-lg border border-green-500 border-opacity-30">
           <p className="text-xs text-green-200">
-            <strong>Tip:</strong> Make sure both members use the same room name
-            and have valid access tokens with the same room permissions.
+            <strong>Tip:</strong> All participants must use the same room name
+            and have valid access tokens.
+            {audioSource === "system" &&
+              " System audio is being shared - others can hear what you're playing!"}
           </p>
         </div>
       </div>

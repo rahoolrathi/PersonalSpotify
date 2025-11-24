@@ -2,12 +2,10 @@
   "name": "livekit-audio-room",
   "version": "1.0.0",
   "private": true,
-  "homepage": "https://YOUR_GITHUB_USERNAME.github.io/livekit-audio-room",
+  "homepage": "https://rahoolrathi.github.io/PersonalSpotify",
   "dependencies": {
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "livekit-client": "^2.0.0",
-    "lucide-react": "^0.263.1"
+    "react-dom": "^18.2.0"
   },
   "scripts": {
     "start": "react-scripts start",

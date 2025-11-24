@@ -1,5 +1,91 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Mic, MicOff, Volume2, VolumeX, Users, LogOut } from "lucide-react";
+
+// Simple inline icons
+const Mic = ({ className }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+    />
+  </svg>
+);
+
+const MicOff = ({ className }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
+    />
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"
+    />
+  </svg>
+);
+
+const Volume2 = ({ className }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
+    />
+  </svg>
+);
+
+const Users = ({ className }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+    />
+  </svg>
+);
+
+const LogOut = ({ className }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+    />
+  </svg>
+);
 
 export default function LiveKitAudioRoom() {
   const [roomName, setRoomName] = useState("");
@@ -10,9 +96,40 @@ export default function LiveKitAudioRoom() {
   const [isMuted, setIsMuted] = useState(false);
   const [participants, setParticipants] = useState([]);
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const roomRef = useRef(null);
   const localTrackRef = useRef(null);
+  const LiveKitRef = useRef(null);
+
+  // Load LiveKit SDK dynamically
+  useEffect(() => {
+    const loadLiveKit = async () => {
+      try {
+        // Load from CDN
+        const script = document.createElement("script");
+        script.src =
+          "https://unpkg.com/livekit-client@2.0.0/dist/livekit-client.umd.min.js";
+        script.async = true;
+        document.body.appendChild(script);
+
+        script.onload = () => {
+          LiveKitRef.current = window.LivekitClient;
+        };
+      } catch (err) {
+        console.error("Failed to load LiveKit SDK:", err);
+      }
+    };
+
+    loadLiveKit();
+
+    return () => {
+      const scripts = document.querySelectorAll(
+        'script[src*="livekit-client"]'
+      );
+      scripts.forEach((script) => script.remove());
+    };
+  }, []);
 
   const joinRoom = async () => {
     if (!roomName || !userName || !token || !wsUrl) {
@@ -20,13 +137,16 @@ export default function LiveKitAudioRoom() {
       return;
     }
 
+    if (!LiveKitRef.current) {
+      setError("LiveKit SDK is still loading, please wait...");
+      return;
+    }
+
     try {
       setError("");
+      setIsLoading(true);
 
-      // Import LiveKit SDK dynamically
-      const { Room, RoomEvent, Track } = await import(
-        "https://cdn.jsdelivr.net/npm/livekit-client@2.0.0/+esm"
-      );
+      const { Room, RoomEvent, Track } = LiveKitRef.current;
 
       const room = new Room({
         adaptiveStream: true,
@@ -69,9 +189,11 @@ export default function LiveKitAudioRoom() {
 
       roomRef.current = room;
       setIsConnected(true);
+      setIsLoading(false);
       updateParticipants(room);
     } catch (err) {
       setError(`Failed to join room: ${err.message}`);
+      setIsLoading(false);
       console.error(err);
     }
   };
@@ -122,7 +244,7 @@ export default function LiveKitAudioRoom() {
   if (!isConnected) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
-        <div className="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-8 w-full max-w-md border border-white/20">
+        <div className="bg-white bg-opacity-10 backdrop-blur-lg rounded-2xl shadow-2xl p-8 w-full max-w-md border border-white border-opacity-20">
           <div className="text-center mb-8">
             <Volume2 className="w-16 h-16 text-blue-400 mx-auto mb-4" />
             <h1 className="text-3xl font-bold text-white mb-2">Audio Room</h1>
@@ -130,7 +252,7 @@ export default function LiveKitAudioRoom() {
           </div>
 
           {error && (
-            <div className="bg-red-500/20 border border-red-500/50 text-red-200 px-4 py-3 rounded-lg mb-4">
+            <div className="bg-red-500 bg-opacity-20 border border-red-500 border-opacity-50 text-red-200 px-4 py-3 rounded-lg mb-4">
               {error}
             </div>
           )}
@@ -145,7 +267,7 @@ export default function LiveKitAudioRoom() {
                 value={wsUrl}
                 onChange={(e) => setWsUrl(e.target.value)}
                 placeholder="wss://your-server.livekit.cloud"
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-3 bg-white bg-opacity-10 border border-white border-opacity-20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
@@ -158,7 +280,7 @@ export default function LiveKitAudioRoom() {
                 value={roomName}
                 onChange={(e) => setRoomName(e.target.value)}
                 placeholder="my-audio-room"
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-3 bg-white bg-opacity-10 border border-white border-opacity-20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
@@ -171,7 +293,7 @@ export default function LiveKitAudioRoom() {
                 value={userName}
                 onChange={(e) => setUserName(e.target.value)}
                 placeholder="John Doe"
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-3 bg-white bg-opacity-10 border border-white border-opacity-20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
@@ -184,19 +306,20 @@ export default function LiveKitAudioRoom() {
                 onChange={(e) => setToken(e.target.value)}
                 placeholder="Paste your LiveKit token here"
                 rows="3"
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none font-mono text-sm"
+                className="w-full px-4 py-3 bg-white bg-opacity-10 border border-white border-opacity-20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none font-mono text-sm"
               />
             </div>
 
             <button
               onClick={joinRoom}
-              className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold py-3 px-6 rounded-lg transition-all transform hover:scale-105 shadow-lg"
+              disabled={isLoading}
+              className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg transition-all transform hover:scale-105 shadow-lg"
             >
-              Join Room
+              {isLoading ? "Joining..." : "Join Room"}
             </button>
           </div>
 
-          <div className="mt-6 p-4 bg-blue-500/10 rounded-lg border border-blue-500/30">
+          <div className="mt-6 p-4 bg-blue-500 bg-opacity-10 rounded-lg border border-blue-500 border-opacity-30">
             <p className="text-xs text-blue-200">
               <strong>Note:</strong> You need to set up a LiveKit server and
               generate access tokens. Visit{" "}
@@ -218,7 +341,7 @@ export default function LiveKitAudioRoom() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
-      <div className="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-8 w-full max-w-2xl border border-white/20">
+      <div className="bg-white bg-opacity-10 backdrop-blur-lg rounded-2xl shadow-2xl p-8 w-full max-w-2xl border border-white border-opacity-20">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
             <div className="w-4 h-4 bg-green-500 rounded-full animate-pulse"></div>
@@ -229,7 +352,7 @@ export default function LiveKitAudioRoom() {
           </p>
         </div>
 
-        <div className="bg-white/5 rounded-xl p-6 mb-6 border border-white/10">
+        <div className="bg-white bg-opacity-5 rounded-xl p-6 mb-6 border border-white border-opacity-10">
           <div className="flex items-center gap-2 mb-4">
             <Users className="w-5 h-5 text-blue-400" />
             <h2 className="text-xl font-semibold text-white">
@@ -240,7 +363,7 @@ export default function LiveKitAudioRoom() {
             {participants.map((participant) => (
               <div
                 key={participant.sid}
-                className="flex items-center gap-3 bg-white/10 rounded-lg p-3"
+                className="flex items-center gap-3 bg-white bg-opacity-10 rounded-lg p-3"
               >
                 <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
                   {participant.name[0].toUpperCase()}
@@ -279,7 +402,7 @@ export default function LiveKitAudioRoom() {
           </button>
         </div>
 
-        <div className="mt-6 p-4 bg-green-500/10 rounded-lg border border-green-500/30">
+        <div className="mt-6 p-4 bg-green-500 bg-opacity-10 rounded-lg border border-green-500 border-opacity-30">
           <p className="text-xs text-green-200">
             <strong>Tip:</strong> Make sure both members use the same room name
             and have valid access tokens with the same room permissions.

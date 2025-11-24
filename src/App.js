@@ -103,21 +103,30 @@ export default function LiveKitAudioRoom() {
   const LiveKitRef = useRef(null);
 
   // Load LiveKit SDK dynamically
+  // Load LiveKit SDK dynamically
   useEffect(() => {
     const loadLiveKit = async () => {
       try {
-        // Load from CDN
+        // Load from jsDelivr CDN (more reliable than unpkg)
         const script = document.createElement("script");
         script.src =
-          "https://unpkg.com/livekit-client@2.0.0/dist/livekit-client.umd.min.js";
+          "https://cdn.jsdelivr.net/npm/livekit-client@2.16.0/dist/livekit-client.umd.min.js";
         script.async = true;
-        document.body.appendChild(script);
 
         script.onload = () => {
           LiveKitRef.current = window.LivekitClient;
+          console.log("LiveKit SDK loaded successfully");
         };
+
+        script.onerror = () => {
+          console.error("Failed to load LiveKit SDK from CDN");
+          setError("Failed to load LiveKit SDK. Please refresh the page.");
+        };
+
+        document.body.appendChild(script);
       } catch (err) {
         console.error("Failed to load LiveKit SDK:", err);
+        setError("Failed to initialize LiveKit SDK");
       }
     };
 
